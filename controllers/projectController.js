@@ -12,8 +12,10 @@ const { validateFilePath, writeFileSafe } = require("../utils/fileHandler.js");
 const Project = require("../models/projectModel.js");
 const { overwriteViteConfig } = require("../services/overwriteViteConfig.js");
 const { addServerBlock } = require("../utils/nginxConfigGenerator.js");
+const { initializeGet, pushChanges } = require("../services/versionControl.js");
 
 // Create new project controller
+
 const createProject = async (req, res) => {
   console.log("Creating project...");
   const { projectName } = req.body;
@@ -35,7 +37,6 @@ const createProject = async (req, res) => {
     await fs.writeFile(packagePath, JSON.stringify(pkg, null, 2));
 
     const totalProjects = await Project.countDocuments();
-    console.log("Total projects in DB: ", totalProjects);
 
     const portNumber = totalProjects + 5000 + 1;
 
@@ -47,11 +48,10 @@ const createProject = async (req, res) => {
     const vitePath = path.join(projectPath, "vite.config.ts");
     await overwriteViteConfig(vitePath, portNumber);
 
-    console.log("Installing dependencies...");
     await exec(`cd ${projectPath} && npm install`, { shell: "cmd.exe" });
 
-    console.log("Starting React App...");
     const { pid } = await startReactApp(projectPath);
+    const result = await initializeGet(projectPath, projectName);
 
     const projectData = {
       name: projectName,
@@ -59,6 +59,7 @@ const createProject = async (req, res) => {
       port: portNumber,
       nginxUrl: `http://localhost:${nginxPort}`,
       url: `http://localhost:${portNumber}`,
+      repoUrl: result,
       status: "active",
     };
 
@@ -72,6 +73,7 @@ const createProject = async (req, res) => {
       port: portNumber,
       nginxUrl: `http://localhost:${nginxPort}`,
       url: `http://localhost:${portNumber}`,
+      repoUrl: result,
     });
   } catch (error) {
     console.error("Error creating project:", error.message);
@@ -97,7 +99,6 @@ const updateProjectFiles = async (req, res) => {
   const projectPath = path.join(__dirname, "../projects", projectName);
 
   try {
-    // Verify project exists
     if (!fs.existsSync(projectPath)) {
       return res.status(404).json({
         success: false,
@@ -105,7 +106,6 @@ const updateProjectFiles = async (req, res) => {
       });
     }
 
-    // Process each file update
     const results = await Promise.all(
       files.map(async (file) => {
         try {
@@ -113,11 +113,7 @@ const updateProjectFiles = async (req, res) => {
             throw new Error("Invalid file path");
           }
           const filePath = path.join(projectPath, file.path);
-
-          // Ensure directory exists
           await fs.ensureDir(path.dirname(filePath));
-
-          // Write file content
           await writeFileSafe(filePath, file.content);
 
           return {
@@ -133,10 +129,11 @@ const updateProjectFiles = async (req, res) => {
         }
       })
     );
-
+    const merged = await pushChanges(projectPath);
     res.json({
       success: true,
       results,
+      mergeMessages: merged,
     });
   } catch (error) {
     res.status(500).json({

@@ -1,10 +1,9 @@
+const fs = require("fs");
+const path = require("path");
+const { exec } = require("child_process");
 
-const fs = require('fs');
-const path = require('path');
-const { exec } = require('child_process');
-
-const SITES_ENABLED_DIR = 'C:/nginx/conf/sites-enabled/';
-const NGINX_CONF_PATH = 'C:/nginx/conf/nginx.conf';
+const SITES_ENABLED_DIR = "C:/nginx/conf/sites-enabled/";
+const NGINX_CONF_PATH = "C:/nginx/conf/nginx.conf";
 const TEMPLATE = `
 server {
     listen {{port}};
@@ -24,26 +23,32 @@ function addServerBlock(nginxPort, appPort) {
   const configPath = path.join(SITES_ENABLED_DIR, `app-${nginxPort}.conf`);
 
   // Generate server block with the correct ports
-  const newConfig = TEMPLATE
-    .replace('{{port}}', nginxPort)
-    .replace('{{appPort}}', appPort);
+  const newConfig = TEMPLATE.replace("{{port}}", nginxPort).replace(
+    "{{appPort}}",
+    appPort
+  );
 
   // Write new site-specific Nginx config
-  fs.writeFileSync(configPath, newConfig, 'utf8');
+  fs.writeFileSync(configPath, newConfig, "utf8");
   console.log(`Nginx config written: ${configPath}`);
 
   // Reload Nginx to apply changes
-  exec(`${NGINX_CONF_PATH} -s reload`, (error, stdout, stderr) => {
-                if (error) {
-                    console.error(`❌ Error reloading Nginx: ${stderr}`);
-                    return;
-                }
-                console.log('✅ Nginx reloaded successfully');
-            });
+  exec(
+    `${NGINX_CONF_PATH} -s reload`,
+    {
+      shell: "cmd.exe",
+    },
+    (error, stdout, stderr) => {
+      if (error) {
+        console.error(`❌ Error reloading Nginx: ${stderr}`);
+        return;
+      }
+      console.log("✅ Nginx reloaded successfully");
+    }
+  );
 }
 
 module.exports = { addServerBlock };
-
 
 // const fs = require('fs');
 // const path = require('path');

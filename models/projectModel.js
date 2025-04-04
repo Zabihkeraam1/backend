@@ -5,6 +5,7 @@ const projectModel = new mongoose.Schema({
     port: { type: Number, required: true },
     url: { type: String, required: true },
     nginxUrl: { type: String, required: true },
+    repoUrl: { type: String, required: true },
     status: { type: String, required: true, enum: ['active', 'inactive'] }
 })
 
